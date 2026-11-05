@@ -8,7 +8,7 @@ import os
 from typing import List
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # 1. SAMPLE FIDIC CLAUSE CORPUS (Red Book 1999 Baseline)

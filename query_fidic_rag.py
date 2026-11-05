@@ -5,7 +5,7 @@
 # =====================================================================
 
 import os
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 
 def run_fidic_rag_adjudication(claim_statement: str, persist_directory: str = "./chroma_fidic_db"):
