@@ -15,7 +15,7 @@ from reportlab.lib import colors
 # SECTION 1: UI CONFIGURATION & STYLING
 # =====================================================================
 st.set_page_config(
-    page_title="FIDIC Claims Engine | RAG + Deterministic CPU + Multi-Agent",
+    page_title="FIDIC Claims Engine | Multi-Edition (1999 & 2017)",
     page_icon="⚖️",
     layout="wide"
 )
@@ -31,11 +31,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">⚖️ FIDIC Enterprise Claims & Delay Engine (Red Book 1999)</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Bridge 1: ChromaDB RAG Vector Gate &nbsp;|&nbsp; Bridge 2: Deterministic CPU Engine &nbsp;|&nbsp; Bridge 3: Multi-Agent DAB Negotiation</div>', unsafe_allow_html=True)
-
 # =====================================================================
-# SECTION 2: SIDEBAR GOVERNANCE & FINANCIAL PARAMETERS
+# SECTION 2: SIDEBAR GOVERNANCE & MULTI-EDITION MAPPING
 # =====================================================================
 try:
     cloud_key = st.secrets.get("GEMINI_API_KEY")
@@ -48,12 +45,19 @@ if "adjudication_runs" not in st.session_state:
 
 with st.sidebar:
     st.header("⚙️ Engine Parameters")
-    st.markdown("**Vector Store:** ChromaDB (Persistent Disk)")
+    
+    # Contract Edition Toggle
+    selected_edition = st.selectbox(
+        "Select FIDIC Edition:",
+        ["FIDIC 1999 Red Book", "FIDIC 2017 Second Edition"],
+        index=0
+    )
+    is_2017 = selected_edition == "FIDIC 2017 Second Edition"
+
+    st.markdown("**Vector Store:** ChromaDB (Multi-Edition)")
     st.markdown("**Embeddings:** `gemini-embedding-2`")
     st.markdown("**Cognitive Model:** `gemini-3.5-flash` (Temp 0.0)")
-    st.markdown("**Relevance Gate:** `0.45` Cosine Similarity")
     st.markdown("**Calculation Layer:** Python CPU (Zero Drift)")
-    st.markdown("**Bridge 3:** Adversarial Multi-Agent DAB")
     st.divider()
 
     custom_key = st.text_input("Enter Your Own Gemini API Key (Optional)", type="password")
@@ -72,23 +76,36 @@ with st.sidebar:
 
     st.header("Contract Financial Terms")
     contract_value = st.number_input("Contract Sum ($):", min_value=100000, value=25000000, step=500000)
-    ld_daily_rate = st.number_input("Daily LD Rate under Cl. 8.7 ($/day):", min_value=1000, value=15000, step=1000)
+    ld_daily_rate = st.number_input("Daily LD Rate ($/day):", min_value=1000, value=15000, step=1000)
     ld_cap_percent = st.number_input("LD Maximum Cap (% of Contract):", min_value=1.0, max_value=25.0, value=10.0, step=0.5)
+
+# Contract Clause Mapping
+clause_map = {
+    "notice": "Sub-Clause 20.2.1" if is_2017 else "Sub-Clause 20.1",
+    "notice_desc": "28-Day Reciprocal Condition Precedent" if is_2017 else "28-Day Condition Precedent",
+    "eot": "Sub-Clause 8.5" if is_2017 else "Sub-Clause 8.4",
+    "ld": "Sub-Clause 8.8" if is_2017 else "Sub-Clause 8.7",
+    "determination": "Sub-Clause 3.7 (Neutrality & 42 Days)" if is_2017 else "Sub-Clause 3.5 (Engineer's Determination)",
+    "board": "Standing DAAB (Sub-Clause 21.4)" if is_2017 else "Ad-hoc DAB (Sub-Clause 20.4)"
+}
+
+st.markdown(f'<div class="main-title">⚖️ FIDIC Enterprise Claims & Delay Engine ({selected_edition})</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="sub-title">Bridge 1: ChromaDB RAG &nbsp;|&nbsp; Bridge 2: Deterministic CPU ({clause_map["notice"]}) &nbsp;|&nbsp; Bridge 3: Multi-Agent {clause_map["board"]}</div>', unsafe_allow_html=True)
 
 # =====================================================================
 # SECTION 3: BRIDGE 2 DETERMINISTIC CPU CALCULATION LAYER
 # =====================================================================
-def calculate_delay_and_cost(d_event, d_notice, claimed_days, avail_float, concurrent_delay, total_delay_days, daily_rate, contract_val, cap_pct):
+def calculate_delay_and_cost(d_event, d_notice, claimed_days, avail_float, concurrent_delay, total_delay_days, daily_rate, contract_val, cap_pct, notice_clause):
     notice_delta = (d_notice - d_event).days
     is_time_barred = notice_delta > 28
 
     if is_time_barred:
         net_eot = 0
-        rejection_reason = f"Time-barred under Sub-Clause 20.1 (Notice served at {notice_delta} days; exceeds 28-day condition precedent)."
+        rejection_reason = f"Time-barred under {notice_clause} (Notice served at {notice_delta} days; exceeds 28-day statutory condition precedent)."
     else:
         slippage = max(0, claimed_days - avail_float)
         net_eot = max(0, slippage - concurrent_delay)
-        rejection_reason = f"Procedurally compliant: Notice served within {notice_delta} days."
+        rejection_reason = f"Procedurally compliant under {notice_clause}: Notice served within {notice_delta} days."
 
     unexcused_delay = max(0, total_delay_days - net_eot)
     raw_ld = unexcused_delay * daily_rate
@@ -108,7 +125,7 @@ def calculate_delay_and_cost(d_event, d_notice, claimed_days, avail_float, concu
     }
 
 # =====================================================================
-# SECTION 4: PDF REPORT GENERATION ENGINE (IN-MEMORY & ENCRYPTED)
+# SECTION 4: PDF GENERATION ENGINE
 # =====================================================================
 def clean_pdf_text(text):
     replacements = {
@@ -121,32 +138,31 @@ def clean_pdf_text(text):
         text = text.replace(k, v)
     return text.encode('latin-1', 'replace').decode('latin-1')
 
-def generate_pdf_report(report_title, narrative, event_d, notice_d, claimed_d, calc_data, decision_text):
+def generate_pdf_report(edition_title, report_title, narrative, event_d, notice_d, claimed_d, calc_data, decision_text, cmap):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle('RepTitle', parent=styles['Heading1'], fontSize=16, leading=20, textColor=colors.HexColor('#1B365D'))
-    h2_style = ParagraphStyle('RepH2', parent=styles['Heading2'], fontSize=12, leading=16, textColor=colors.HexColor('#1B365D'))
+    title_style = ParagraphStyle('RepTitle', parent=styles['Heading1'], fontSize=15, leading=19, textColor=colors.HexColor('#1B365D'))
+    h2_style = ParagraphStyle('RepH2', parent=styles['Heading2'], fontSize=11, leading=15, textColor=colors.HexColor('#1B365D'))
     body_style = ParagraphStyle('RepBody', parent=styles['Normal'], fontSize=9, leading=13, textColor=colors.HexColor('#1E293B'))
 
     elements = []
     elements.append(Paragraph(clean_pdf_text(f"<b>{report_title}</b>"), title_style))
-    elements.append(Paragraph(clean_pdf_text("FIDIC Conditions of Contract for Construction (Red Book 1999) | Adjudication Record"), body_style))
+    elements.append(Paragraph(clean_pdf_text(f"Governing Standard: {edition_title} | Adjudication Record"), body_style))
     elements.append(Spacer(1, 12))
 
-    # Audit Metrics Table
     status_label = "TIME-BARRED" if calc_data['is_time_barred'] else "TIMELY NOTICE"
     table_data = [
         ["Parameter", "Audited Metric", "Contractual Governing Basis"],
-        ["Notice Delta (Cl. 20.1)", f"{calc_data['notice_delta']} Days", f"Statutory Limit: 28 Days ({status_label})"],
+        [f"Notice Delta ({cmap['notice']})", f"{calc_data['notice_delta']} Days", f"Limit: 28 Days ({status_label})"],
         ["Extension of Time Claimed", f"{claimed_d} Days", "Contractor Submission"],
-        ["Net Defensible EoT (Cl. 8.4)", f"{calc_data['net_eot']} Days", "SCL Protocol Concurrency & Float Offset"],
-        ["Unexcused Delay Assessed", f"{calc_data['unexcused_delay']} Days", "Subject to Sub-Clause 8.7 Delay Damages"],
+        [f"Net Defensible EoT ({cmap['eot']})", f"{calc_data['net_eot']} Days", "SCL Protocol Concurrency & Float Deduction"],
+        ["Unexcused Delay Assessed", f"{calc_data['unexcused_delay']} Days", f"Subject to {cmap['ld']} Delay Damages"],
         ["Liquidated Damages Levied", f"${calc_data['liquidated_damages']:,.2f}", f"Contractual Cap Applied: {'Yes' if calc_data['is_capped'] else 'No'}"]
     ]
 
-    t = Table(table_data, colWidths=[150, 110, 250])
+    t = Table(table_data, colWidths=[155, 110, 245])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1B365D')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -159,12 +175,10 @@ def generate_pdf_report(report_title, narrative, event_d, notice_d, claimed_d, c
     elements.append(t)
     elements.append(Spacer(1, 14))
 
-    # Dispute Narrative
     elements.append(Paragraph("<b>1. Claim Particulars & Factual Submittal</b>", h2_style))
     elements.append(Paragraph(clean_pdf_text(narrative), body_style))
     elements.append(Spacer(1, 12))
 
-    # Formal Determination
     elements.append(Paragraph("<b>2. Binding Adjudication Ruling</b>", h2_style))
     for paragraph in decision_text.split("\n"):
         if paragraph.strip():
@@ -205,20 +219,20 @@ with col_left:
     total_project_delay = st.number_input("Total Project Delay Recorded (Days):", min_value=0, value=40)
 
 with col_right:
-    st.subheader("2. Bridge 2: Deterministic Delay & LD Audit")
+    st.subheader(f"2. Bridge 2: Deterministic Delay & LD Audit ({clause_map['notice']})")
     
     calc = calculate_delay_and_cost(
         date_event, date_notice, claimed_days, avail_float, concurrent_delay,
-        total_project_delay, ld_daily_rate, contract_value, ld_cap_percent
+        total_project_delay, ld_daily_rate, contract_value, ld_cap_percent, clause_map["notice"]
     )
 
     m1, m2 = st.columns(2)
-    m1.metric("Notice Delta (Cl. 20.1)", f"{calc['notice_delta']} Days", "Limit: 28 Days", delta_color="inverse" if calc['is_time_barred'] else "normal")
+    m1.metric(f"Notice Delta ({clause_map['notice']})", f"{calc['notice_delta']} Days", "Limit: 28 Days", delta_color="inverse" if calc['is_time_barred'] else "normal")
     m2.metric("Procedural Gate", "TIME-BARRED" if calc['is_time_barred'] else "TIMELY NOTICE", delta_color="inverse" if calc['is_time_barred'] else "normal")
 
     m3, m4 = st.columns(2)
-    m3.metric("Net Defensible EoT (Cl. 8.4)", f"{calc['net_eot']} Days", f"Claimed: {claimed_days}d")
-    m4.metric("Delay Damages (Cl. 8.7)", f"${calc['liquidated_damages']:,.0f}", f"Unexcused: {calc['unexcused_delay']}d", delta_color="inverse" if calc['liquidated_damages'] > 0 else "normal")
+    m3.metric(f"Net Defensible EoT ({clause_map['eot']})", f"{calc['net_eot']} Days", f"Claimed: {claimed_days}d")
+    m4.metric(f"Delay Damages ({clause_map['ld']})", f"${calc['liquidated_damages']:,.0f}", f"Unexcused: {calc['unexcused_delay']}d", delta_color="inverse" if calc['liquidated_damages'] > 0 else "normal")
 
     if calc['is_time_barred']:
         st.error(f"❌ {calc['rejection_reason']}")
@@ -228,74 +242,79 @@ with col_right:
 st.divider()
 
 # =====================================================================
-# SECTION 6: UNIFIED ADJUDICATION PIPELINE & DOWNLOAD GATES
+# SECTION 6: UNIFIED ADJUDICATION PIPELINE & MULTI-AGENT BOARD
 # =====================================================================
 is_limit_reached = (not custom_key) and (st.session_state.adjudication_runs >= MAX_SESSION_RUNS)
 
 if is_limit_reached:
-    st.warning("⚠️ Session demo limit reached (3/3 runs used). To run further determinations, enter your own Gemini API Key in the left sidebar.")
+    st.warning("⚠️ Session demo limit reached (3/3 runs used). To run further adjudications, enter your own Gemini API Key in the left sidebar.")
 
 col_btn1, col_btn2 = st.columns(2)
-run_btn_single = col_btn1.button("⚖️ Run Engineer's Determination (Sub-Cl. 3.5)", type="primary", disabled=is_limit_reached)
-run_btn_multi = col_btn2.button("🤝 Run Bridge 3: Multi-Agent DAB Negotiation", disabled=is_limit_reached)
+run_btn_single = col_btn1.button(f"⚖️ Run Determination ({clause_map['determination']})", type="primary", disabled=is_limit_reached)
+run_btn_multi = col_btn2.button(f"🤝 Run Bridge 3: Multi-Agent Negotiation ({clause_map['board']})", disabled=is_limit_reached)
 
-def get_rag_context(statement):
+def get_rag_context(statement, edition_tag):
     persist_dir = "./chroma_fidic_db"
     embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-2")
     vector_db = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
-    results = vector_db.similarity_search_with_relevance_scores(statement, k=3)
-    retrieved = [doc for doc, score in results if score >= 0.45]
+    
+    # Filter search by edition
+    filter_dict = {"edition": "2017"} if edition_tag else None
+    results = vector_db.similarity_search_with_relevance_scores(statement, k=4, filter=filter_dict)
+    
+    retrieved = [doc for doc, score in results if score >= 0.40]
     context = "\n\n".join([
         f"--- {doc.metadata.get('clause_number', 'Clause')}: {doc.metadata.get('clause_title', 'Title')} ---\n{doc.page_content}"
         for doc in retrieved
     ])
     return results, retrieved, context
 
-# Execution Path A: Engineer's Determination
+# Path A: Determination
 if run_btn_single:
     if not api_key:
         st.error("API Key missing. Please provide a Gemini API Key.")
         st.stop()
 
-    with st.spinner("Retrieving verified clauses and synthesizing formal determination..."):
+    with st.spinner(f"Auditing {selected_edition} conditions and synthesizing determination..."):
         try:
-            results, retrieved_clauses, context_text = get_rag_context(claim_statement)
+            results, retrieved_clauses, context_text = get_rag_context(claim_statement, is_2017)
 
-            st.subheader("Step 1: Contractual Relevance Audit (Bridge 1)")
-            cols = st.columns(3)
+            st.subheader(f"Step 1: Contractual Relevance Audit ({selected_edition})")
+            cols = st.columns(len(results))
             for idx, (doc, score) in enumerate(results):
-                passed = score >= 0.45
-                clause_tag = doc.metadata.get("clause_number", doc.metadata.get("clause", "Clause"))
-                title_tag = doc.metadata.get("clause_title", doc.metadata.get("title", "Condition"))
+                passed = score >= 0.40
+                clause_tag = doc.metadata.get("clause_number", "Clause")
+                title_tag = doc.metadata.get("clause_title", "Condition")
                 with cols[idx]:
                     st.metric(label=clause_tag, value=f"{score:.4f}", delta="Passed Gate" if passed else "Rejected", delta_color="normal" if passed else "inverse")
                     st.caption(f"**{title_tag}**")
-                    st.text(doc.page_content[:140] + "...")
+                    st.text(doc.page_content[:120] + "...")
 
             if not retrieved_clauses:
-                st.error("Relevance Gate Audit: No contract clauses exceeded 0.45 threshold. Claim dismissed.")
+                st.error("Relevance Gate Audit: No relevant contract clauses passed threshold. Claim dismissed.")
                 st.stop()
 
             llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.0)
-            system_prompt = f"""You are an impartial FIDIC Engineer operating strictly under FIDIC 1999 Red Book rules.
+            system_prompt = f"""You are an impartial FIDIC Engineer operating strictly under {selected_edition} rules.
 
 VERIFIED CONTRACT EXCERPTS (Bridge 1 RAG):
 {context_text}
 
 DETERMINISTIC CPU AUDIT METRICS (Bridge 2 Mathematical Facts - DO NOT ALTER):
 - Notice Delta: {calc['notice_delta']} days (Limit: 28 days | Status: {'TIME-BARRED' if calc['is_time_barred'] else 'TIMELY'})
+- Notice Governing Clause: {clause_map['notice']} ({clause_map['notice_desc']})
 - Claimed EoT: {claimed_days} days | Float Consumed: {avail_float} days | Concurrent Delay: {concurrent_delay} days
-- Net Defensible EoT: {calc['net_eot']} days | Unexcused Delay: {calc['unexcused_delay']} days
-- Liquidated Delay Damages Assessed (Cl. 8.7): ${calc['liquidated_damages']:,.2f}
+- Net Defensible EoT: {calc['net_eot']} days under {clause_map['eot']} | Unexcused Delay: {calc['unexcused_delay']} days
+- Liquidated Delay Damages Assessed: ${calc['liquidated_damages']:,.2f} under {clause_map['ld']}
 
 DISPUTE NARRATIVE:
 {claim_statement}
 
-Draft a formal Engineer's Determination Letter under Sub-Clause 3.5:
-1. CONTRACTUAL CLAUSES INVOKED
-2. PROCEDURAL TIME-BAR DETERMINATION (Sub-Clause 20.1)
-3. EXTENSION OF TIME & CONCURRENCY ANALYSIS (SCL Float Offset)
-4. FINANCIAL RULING & DELAY DAMAGES (Sub-Clause 8.7)
+Draft a formal Engineer's Determination Letter under {clause_map['determination']}:
+1. CONTRACTUAL CLAUSES INVOKED (Cite exact {selected_edition} Sub-Clauses)
+2. PROCEDURAL TIME-BAR DETERMINATION (Strict ruling under {clause_map['notice']})
+3. EXTENSION OF TIME & CONCURRENCY ANALYSIS (SCL Float Offset under {clause_map['eot']})
+4. FINANCIAL RULING & DELAY DAMAGES (Binding dollar assessment under {clause_map['ld']})
 """
             response = llm.invoke(system_prompt)
             output_text = response.content[0].get("text", "") if isinstance(response.content, list) else response.content
@@ -303,80 +322,74 @@ Draft a formal Engineer's Determination Letter under Sub-Clause 3.5:
             if not custom_key:
                 st.session_state.adjudication_runs += 1
 
-            st.subheader("Step 2: Formal Engineer's Determination Memorandum")
+            st.subheader(f"Step 2: Formal Engineer's Determination ({clause_map['determination']})")
             st.markdown(f'<div class="verdict-box">{output_text.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
 
-            # Generate Downloadable PDF
             pdf_bytes = generate_pdf_report(
-                "ENGINEER'S FORMAL DETERMINATION (SUB-CLAUSE 3.5)",
-                claim_statement, date_event, date_notice, claimed_days, calc, output_text
+                selected_edition, f"FORMAL DETERMINATION ({clause_map['determination']})",
+                claim_statement, date_event, date_notice, claimed_days, calc, output_text, clause_map
             )
             st.download_button(
-                label="📥 Download Formal Engineer's Determination (PDF)",
+                label=f"📥 Download Formal Determination PDF ({selected_edition})",
                 data=pdf_bytes,
-                file_name=f"FIDIC_Cl_3.5_Determination_{date.today().strftime('%Y%m%d')}.pdf",
+                file_name=f"FIDIC_Determination_{'2017' if is_2017 else '1999'}_{date.today().strftime('%Y%m%d')}.pdf",
                 mime="application/pdf"
             )
         except Exception as e:
             st.error(f"Execution Error: {e}")
 
-# Execution Path B: Bridge 3 Multi-Agent DAB Negotiation
+# Path B: Multi-Agent Board
 if run_btn_multi:
     if not api_key:
         st.error("API Key missing. Please provide a Gemini API Key.")
         st.stop()
 
-    with st.spinner("Deploying Contractor Advocate & Employer DAB Sentry Agents..."):
+    with st.spinner(f"Deploying Contractor Advocate & Employer Sentry Agents under {selected_edition}..."):
         try:
-            results, retrieved_clauses, context_text = get_rag_context(claim_statement)
+            results, retrieved_clauses, context_text = get_rag_context(claim_statement, is_2017)
             if not retrieved_clauses:
                 st.error("Relevance Gate Audit: No verified contract clauses found. Negotiation aborted.")
                 st.stop()
 
             llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.2)
 
-            # Agent 1: Contractor Advocate
-            prompt_contractor = f"""You are the Lead Claims Advocate representing the EPC Contractor under FIDIC 1999 Red Book.
+            prompt_contractor = f"""You are the Lead Claims Advocate representing the EPC Contractor under {selected_edition}.
 CONTRACT CONTEXT: {context_text}
 AUDITED FACTS: Event Inception: {date_event}, Notice Served: {date_notice} ({calc['notice_delta']} days). Claimed EoT: {claimed_days} days. Total project delay: {total_project_delay} days.
 DISPUTE NARRATIVE: {claim_statement}
 
-Your Objective: Fight aggressively for full {claimed_days} days EoT and full contractor relief.
-Argue why the notice was timely, why float belongs to the contractor, challenge concurrent delays, and reject any liquidated damages. Be assertive, legally structured, and concise (under 200 words)."""
+Your Objective: Fight aggressively for full {claimed_days} days EoT under {clause_map['eot']}. Argue why notice was timely under {clause_map['notice']}, reject float ownership, and dispute delay damages under {clause_map['ld']}. Be assertive, structured, and concise (under 200 words)."""
             
             res_contractor = llm.invoke(prompt_contractor)
             contractor_speech = res_contractor.content[0].get("text", "") if isinstance(res_contractor.content, list) else res_contractor.content
 
-            # Agent 2: Employer DAB Sentry
-            prompt_employer = f"""You are the Dispute Adjudication Board (DAB) Legal Sentry defending the Employer under FIDIC 1999 Red Book.
+            prompt_employer = f"""You are the Legal Sentry defending the Employer under {selected_edition}.
 CONTRACT CONTEXT: {context_text}
 DETERMINISTIC CPU AUDITED METRICS:
-- Notice Delta: {calc['notice_delta']} days (Ceiling: 28 days | Time-Bar: {calc['is_time_barred']})
-- SCL Float Available: {avail_float} days consumed
-- Concurrent Contractor Delay: {concurrent_delay} days deducted
-- Net Defensible EoT: {calc['net_eot']} days
+- Notice Delta: {calc['notice_delta']} days (Statutory Limit: 28 days | Time-Bar: {calc['is_time_barred']}) under {clause_map['notice']}
+- SCL Float Consumed: {avail_float} days | Concurrent Contractor Delay: {concurrent_delay} days
+- Net Defensible EoT: {calc['net_eot']} days under {clause_map['eot']}
 - Unexcused Delay: {calc['unexcused_delay']} days
-- Contractual Delay Damages Levied: ${calc['liquidated_damages']:,.2f}
+- Contractual Delay Damages Levied: ${calc['liquidated_damages']:,.2f} under {clause_map['ld']}
 
-CONTRACTOR ADVOCATE'S ARGUMENT:
+CONTRACTOR ARGUMENT:
 {contractor_speech}
 
-Your Objective: Strictly enforce contractual conditions precedent. If notice > 28 days, enforce Sub-Clause 20.1 time-bar ruthlessly. Enforce SCL concurrency offsets and demand full recovery of ${calc['liquidated_damages']:,.2f} in liquidated damages under Sub-Clause 8.7. Be decisive and concise (under 200 words)."""
+Your Objective: Strictly enforce conditions precedent under {clause_map['notice']}. If notice > 28 days, enforce time-bar unconditionally. Demand full recovery of ${calc['liquidated_damages']:,.2f} delay damages under {clause_map['ld']}. Be decisive and concise (under 200 words)."""
 
             res_employer = llm.invoke(prompt_employer)
             employer_speech = res_employer.content[0].get("text", "") if isinstance(res_employer.content, list) else res_employer.content
 
-            # Agent 3: Mediated Settlement Accord
-            prompt_accord = f"""You are an accredited Senior Arbitrator / FIDIC Adjudicator presiding over this dispute.
-FACTUAL DETERMINISTIC CPU METRICS: Net EoT: {calc['net_eot']} days. Liquidated Damages: ${calc['liquidated_damages']:,.2f}. Notice Delta: {calc['notice_delta']} days.
+            prompt_accord = f"""You are an accredited Senior Arbitrator / Board Member presiding over this dispute under {selected_edition} {clause_map['board']}.
+FACTUAL DETERMINISTIC CPU METRICS: Net EoT: {calc['net_eot']} days ({clause_map['eot']}). Liquidated Damages: ${calc['liquidated_damages']:,.2f} ({clause_map['ld']}). Notice Delta: {calc['notice_delta']} days ({clause_map['notice']}).
 CONTRACTOR SUBMISSION: {contractor_speech}
-EMPLOYER DAB REBUTTAL: {employer_speech}
+EMPLOYER REBUTTAL: {employer_speech}
 
-Synthesize a binding 'Dispute Adjudication Board Settlement Accord' under Sub-Clause 20.4.
+Synthesize a binding 'Settlement Accord' under {clause_map['board']}.
 Provide:
-1. FINAL BINDING EOT AWARD (Days)
-2. FINAL ENFORCEABLE DELAY DAMAGES ($)
-3. 3-POINT COMMERCIAL SETTLEMENT ACTION PLAN (Clear bullets for site execution)"""
+1. FINAL BINDING EOT AWARD (Days under {clause_map['eot']})
+2. FINAL ENFORCEABLE DELAY DAMAGES ($ under {clause_map['ld']})
+3. 3-POINT COMMERCIAL SETTLEMENT ACTION PLAN"""
 
             res_accord = llm.invoke(prompt_accord)
             accord_speech = res_accord.content[0].get("text", "") if isinstance(res_accord.content, list) else res_accord.content
@@ -384,26 +397,25 @@ Provide:
             if not custom_key:
                 st.session_state.adjudication_runs += 1
 
-            st.subheader("Step 3: Multi-Agent Adversarial Negotiation Transcript")
+            st.subheader(f"Step 3: Multi-Agent Adversarial Transcript ({selected_edition})")
             tab_view, tab_raw = st.tabs(["🏛️ Adversarial Debate Stream", "📜 Settlement Term Sheet"])
 
             with tab_view:
                 st.markdown(f'<div class="contractor-box"><b>👷 Contractor Advocate Agent:</b><br>{contractor_speech.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="employer-box"><b>🏛️ Employer DAB Sentry Agent:</b><br>{employer_speech.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="employer-box"><b>🏛️ Employer Sentry Agent:</b><br>{employer_speech.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
 
             with tab_raw:
-                st.markdown(f'<div class="accord-box"><b>⚖️ DAB Mediated Settlement Accord (Sub-Clause 20.4):</b><br>{accord_speech.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="accord-box"><b>⚖️ {clause_map["board"]} Mediated Settlement Accord:</b><br>{accord_speech.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
 
-            # Generate Downloadable Accord PDF
-            combined_negotiation_text = f"CONTRACTOR POSITION:\n{contractor_speech}\n\nEMPLOYER DAB REBUTTAL:\n{employer_speech}\n\nBINDING DAB SETTLEMENT ACCORD:\n{accord_speech}"
+            combined_text = f"CONTRACTOR POSITION:\n{contractor_speech}\n\nEMPLOYER REBUTTAL:\n{employer_speech}\n\nBINDING SETTLEMENT ACCORD ({clause_map['board']}):\n{accord_speech}"
             pdf_bytes = generate_pdf_report(
-                "DISPUTE ADJUDICATION BOARD ACCORD (SUB-CLAUSE 20.4)",
-                claim_statement, date_event, date_notice, claimed_days, calc, combined_negotiation_text
+                selected_edition, f"SETTLEMENT ACCORD ({clause_map['board']})",
+                claim_statement, date_event, date_notice, claimed_days, calc, combined_text, clause_map
             )
             st.download_button(
-                label="📥 Download DAB Mediated Settlement Accord (PDF)",
+                label=f"📥 Download {clause_map['board']} Accord PDF",
                 data=pdf_bytes,
-                file_name=f"FIDIC_Cl_20.4_DAB_Accord_{date.today().strftime('%Y%m%d')}.pdf",
+                file_name=f"FIDIC_Accord_{'2017' if is_2017 else '1999'}_{date.today().strftime('%Y%m%d')}.pdf",
                 mime="application/pdf"
             )
         except Exception as e:
