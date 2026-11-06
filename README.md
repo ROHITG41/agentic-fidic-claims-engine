@@ -1,34 +1,36 @@
 # ⚖️ FIDIC Enterprise Claims & Delay Engine (Red Book 1999)
 
-[![Live Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://rohit-kumar-fidic-claims.streamlit.app)
+[![Live Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://rohitkumarg-fidic-engine.streamlit.app)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Vector Store](https://img.shields.io/badge/ChromaDB-Persistent%20Disk-red)](https://www.trychroma.com/)
 [![Embeddings](https://img.shields.io/badge/Google-gemini--embedding--2-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 [![Reasoning Engine](https://img.shields.io/badge/Cognitive%20LLM-gemini--3.5--flash%20(Temp%200.0)-8E75C2)](https://ai.google.dev/)
+[![Multi-Agent Architecture](https://img.shields.io/badge/Architecture-Autonomous%20Multi--Agent%20DAB-green)](https://github.com/ROHITG41/agentic-fidic-claims-engine)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An enterprise-grade, hybrid AI adjudication system engineered for construction disputes under the FIDIC 1999 Conditions of Contract for Construction (Red Book). 
+An enterprise-grade, hybrid AI adjudication and dispute negotiation system engineered for FIDIC 1999 Conditions of Contract for Construction (Red Book). 
 
-The platform eliminates AI hallucination through a dual-engine architecture: an on-disk ChromaDB semantic vector gate (Bridge 1) coupled with a deterministic CPU calculation layer (Bridge 2) that programmatically enforces contractual time-bars, float consumption, and liquidated damages caps.
+The platform couples an on-disk ChromaDB semantic vector gate (Bridge 1) with an on-chip deterministic CPU calculation layer (Bridge 2) and an autonomous multi-agent dispute adjudication board (Bridge 3) to eliminate AI hallucination across legal interpretation, critical path delay arithmetic, and bilateral dispute negotiation.
 
 ---
 
 ## 🏛️ Business & Legal Problem Statement
 
-FIDIC contracts govern multi-million and multi-billion-dollar infrastructure developments. Traditional conversational LLMs present fatal risks in contract administration: they hallucinate clauses, cite incorrect editions, miscalculate calendar day deltas, and make rounding errors on delay damages.
+FIDIC contracts govern multi-million and multi-billion-dollar infrastructure developments. Commercial LLMs fail in construction dispute environments because they hallucinate clauses, cite incorrect contract editions, miscalculate calendar-day deltas, and make rounding errors on liquidated damages.
 
 This engine establishes strict deterministic boundaries:
 * **Sub-Clause 20.1 Fatal Time-Bars:** Failure to submit a notice within 28 days of event awareness forfeits all entitlement to time and cost, discharging the Employer from liability.
 * **Sub-Clause 4.12 Unforeseeable Physical Conditions:** Enforces rigorous evidentiary thresholds to determine if subsurface obstructions qualify for relief.
 * **Sub-Clause 8.4 Critical Path Entitlement:** Programmatically deducts available buffer float and contractor concurrent delays under SCL Delay Protocol principles.
 * **Sub-Clause 8.7 Delay Damages Math:** Liquidated damages are calculated strictly on unexcused delay days and capped at the agreed contractual ceiling.
+* **Sub-Clause 20.4 Multi-Agent Adjudication:** Simulates adversarial Dispute Adjudication Board (DAB) proceedings to produce an enforceable mediated settlement accord.
 
 ---
 
-## 📐 System Architecture: Hybrid RAG + Deterministic CPU
+## 📐 System Architecture: The 3-Bridge Engine
 
 ```text
-Contractor Claim Narrative & Schedule Chronology
+Contractor Claim Narrative & Project Chronology
                       │
         ┌─────────────┴─────────────┐
         ▼                           ▼
@@ -39,14 +41,24 @@ Relevance Gate Cutoff >= 0.45   Zero-Hallucination Math Execution
         │ Verified Clauses          │ Audited Days, EoT & LDs ($)
         └─────────────┬─────────────┘
                       ▼
-            [gemini-3.5-flash]
-       Greedy Decoding @ Temperature 0.0
-                      │
-                      ▼
-    Formal Engineer's Determination Letter
-    • Sub-Clause 20.1 Procedural Ruling
-    • Sub-Clause 8.4 Net Defensible EoT
-    • Sub-Clause 8.7 Enforceable Delay Damages ($)
+ ┌─────────────────────────────────────────────────────────────┐
+ │       BRIDGE 3: AUTONOMOUS MULTI-AGENT DAB SENTRY           │
+ │                                                             │
+ │  [Contractor Advocate Agent]    [Employer DAB Sentry Agent] │
+ │  • Maximize EoT & Overheads      • Strict Cl. 20.1 Time-Bar  │
+ │  • Challenge Float Deductions    • Enforce Cl. 8.7 LDs ($)   │
+ │              │                               │              │
+ │              └───────────────┬───────────────┘              │
+ │                              ▼                              │
+ │              [Mediated Settlement Accord Agent]             │
+ │              Sub-Clause 20.4 Binding Compromise             │
+ └──────────────────────────────┬──────────────────────────────┘
+                                ▼
+         Formal Engineer's Determination Memorandum
+         • Contractual Sub-Clauses Invoked & Audited
+         • Binding Net Defensible EoT (Calendar Days)
+         • Legally Enforceable Delay Damages Assessment ($)
+         • Multi-Agent Settlement Accord & Action Plan
 ```
 
 ---
@@ -59,7 +71,8 @@ Relevance Gate Cutoff >= 0.45   Zero-Hallucination Math Execution
 | **Bridge 1: Relevance Guardrail** | Cosine similarity cutoff set at `0.45` | Rejects non-contractual queries prior to model inference. |
 | **Bridge 2: Date Delta Engine** | Pure Python calendar delta calculation | Enforces strict 28-day Sub-Clause 20.1 time-bar condition precedent. |
 | **Bridge 2: Delay & Cost Engine** | SCL float offsets & Sub-Clause 8.7 LD formulas | Guarantees exact liquidated damages math capped at contractual limits. |
-| **Cognitive Adjudicator** | `gemini-3.5-flash` at `temperature=0.0` | Eliminates creative drift; rulings are grounded strictly on retrieved facts. |
+| **Bridge 3: Multi-Agent DAB Sentry** | Autonomous adversarial agent negotiation | Synthesizes Contractor claims and Employer rebuttals into an accord. |
+| **Enterprise Quota Guard** | Session run-capping with BYOK fallback | Shields host API quota from abuse while permitting public trial. |
 
 ---
 
@@ -82,7 +95,7 @@ Relevance Gate Cutoff >= 0.45   Zero-Hallucination Math Execution
 ## 📊 Empirical Verification & Test Matrix
 
 ### Case 1: Procedural Time-Bar (Sub-Clause 20.1)
-* **Scenario:** Notice served 35 days after event awareness (Limit: 28 days).
+* **Scenario:** Notice served 35 days after event awareness (Ceiling: 28 days).
 * **Deterministic CPU Output:** `Notice Delta: 35 days` | `Status: TIME-BARRED` | `Net EoT: 0 days`.
 * **Adjudication Verdict:** **TIME-BARRED**. Employer fully discharged from liability.
 
@@ -93,6 +106,11 @@ Relevance Gate Cutoff >= 0.45   Zero-Hallucination Math Execution
   * Unexcused Culpable Delay: $40 - 28 = \mathbf{12\text{ days}}$.
   * Delay Damages Levied: $12 \times \$15,000 = \mathbf{\$180,000}$.
 * **Adjudication Verdict:** **ADMITTED IN PART (28 Days EoT Awarded, $180,000 LDs Assessed)**.
+
+### Case 3: Bridge 3 Multi-Agent Dispute Adjudication Board (Sub-Clause 20.4)
+* **Contractor Advocate Agent:** Pleads site conditions, rejects float ownership by Employer, demands 40 days EoT.
+* **Employer DAB Sentry Agent:** Rebuts with audited 18-day notice delta, enforces 7-day concurrency offset, demands $180,000 LDs.
+* **Mediated Settlement Accord:** Awards 28 days EoT under Sub-Clause 8.4, affirms $180,000 LD offset under Sub-Clause 8.7, and generates a 3-point binding site execution plan.
 
 ---
 
@@ -120,7 +138,7 @@ streamlit run app_fidic_claims.py
 
 - [x] **Bridge 1 (Completed):** RAG Ingestion Pipeline, Persistent ChromaDB Storage, 0.45 Relevance Gate, Streamlit Cloud Deployment.
 - [x] **Bridge 2 (Completed):** Deterministic Delay & Cost Engine — Zero-drift date arithmetic, SCL float deduction, and Sub-Clause 8.7 damages calculation.
-- [ ] **Bridge 3 (Next Milestone):** Autonomous Multi-Agent Negotiation Sentry — Contractor Advocate Agent vs. Employer Dispute Board Agent.
+- [x] **Bridge 3 (Completed):** Autonomous Multi-Agent Negotiation Sentry — Contractor Advocate Agent vs. Employer Dispute Board Sentry with Sub-Clause 20.4 Mediated Settlement Accord.
 
 ---
 
