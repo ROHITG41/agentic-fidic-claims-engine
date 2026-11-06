@@ -28,7 +28,15 @@ st.markdown('<div class="sub-title">Bridge 1: ChromaDB RAG Vector Gate &nbsp;|&n
 # =====================================================================
 # SECTION 2: SIDEBAR GOVERNANCE & FINANCIAL PARAMETERS
 # =====================================================================
-api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
+try:
+    cloud_key = st.secrets.get("GEMINI_API_KEY")
+except Exception:
+    cloud_key = os.environ.get("GEMINI_API_KEY", "")
+
+# Track demo adjudication runs per user session
+MAX_SESSION_RUNS = 3
+if "adjudication_runs" not in st.session_state:
+    st.session_state.adjudication_runs = 0
 
 with st.sidebar:
     st.header("⚙️ Engine Parameters")
@@ -39,13 +47,19 @@ with st.sidebar:
     st.markdown("**Calculation Layer:** Python CPU (Zero Drift)")
     st.divider()
 
-    if not api_key:
-        api_key = st.text_input("Enter Gemini API Key", type="password")
-        if api_key:
-            os.environ["GEMINI_API_KEY"] = api_key
+    custom_key = st.text_input("Enter Your Own Gemini API Key (Optional)", type="password")
+    if custom_key:
+        api_key = custom_key
+        os.environ["GEMINI_API_KEY"] = custom_key
+        st.success("Custom User API Key Active (Unlimited Runs)")
+    elif cloud_key:
+        api_key = cloud_key
+        os.environ["GEMINI_API_KEY"] = cloud_key
+        remaining = max(0, MAX_SESSION_RUNS - st.session_state.adjudication_runs)
+        st.info(f"Host Demo Key Active: {remaining}/{MAX_SESSION_RUNS} runs left")
     else:
-        st.success("API Key Authenticated")
-        os.environ["GEMINI_API_KEY"] = api_key
+        api_key = ""
+        st.warning("Please provide a Gemini API Key to run determinations.")
 
     st.header("Contract Financial Terms")
     contract_value = st.number_input("Contract Sum ($):", min_value=100000, value=25000000, step=500000)
@@ -56,11 +70,9 @@ with st.sidebar:
 # SECTION 3: BRIDGE 2 DETERMINISTIC CPU CALCULATION LAYER
 # =====================================================================
 def calculate_delay_and_cost(d_event, d_notice, claimed_days, avail_float, concurrent_delay, total_delay_days, daily_rate, contract_val, cap_pct):
-    # 1. Statutory Notice Window Check (FIDIC Sub-Clause 20.1: 28 Days)
     notice_delta = (d_notice - d_event).days
     is_time_barred = notice_delta > 28
 
-    # 2. Critical Path Float & Concurrency Offset (SCL Protocol / Sub-Clause 8.4)
     if is_time_barred:
         net_eot = 0
         rejection_reason = f"Time-barred under Sub-Clause 20.1 (Notice served at {notice_delta} days; exceeds 28-day condition precedent)."
@@ -69,7 +81,6 @@ def calculate_delay_and_cost(d_event, d_notice, claimed_days, avail_float, concu
         net_eot = max(0, slippage - concurrent_delay)
         rejection_reason = f"Procedurally compliant: Notice served within {notice_delta} days."
 
-    # 3. Liquidated Damages Exposure (Sub-Clause 8.7)
     unexcused_delay = max(0, total_delay_days - net_eot)
     raw_ld = unexcused_delay * daily_rate
     ld_cap_amount = (cap_pct / 100.0) * contract_val
@@ -140,11 +151,23 @@ with col_right:
 st.divider()
 
 # =====================================================================
-# SECTION 5: UNIFIED ADJUDICATION PIPELINE (RAG + DETERMINISTIC MATH)
+# SECTION 5: UNIFIED ADJUDICATION PIPELINE (WITH SESSION LIMIT GUARD)
 # =====================================================================
-if st.button("⚖️ Run Full Legal & Financial Adjudication", type="primary"):
-    if not os.environ.get("GEMINI_API_KEY"):
-        st.error("API Key missing. Please set GEMINI_API_KEY.")
+# Check if demo quota is exhausted and no personal API key is provided
+is_limit_reached = (not custom_key) and (st.session_state.adjudication_runs >= MAX_SESSION_RUNS)
+
+if is_limit_reached:
+    st.warning("⚠️ Session demo limit reached (3/3 runs used). To run further legal determinations, enter your own Gemini API Key in the left sidebar.")
+
+run_button = st.button(
+    "⚖️ Run Full Legal & Financial Adjudication",
+    type="primary",
+    disabled=is_limit_reached
+)
+
+if run_button:
+    if not api_key:
+        st.error("API Key missing. Please provide a Gemini API Key.")
         st.stop()
 
     with st.spinner("Retrieving verified contract excerpts and synthesizing formal determination..."):
@@ -181,7 +204,7 @@ if st.button("⚖️ Run Full Legal & Financial Adjudication", type="primary"):
                 for doc in retrieved_clauses
             ])
 
-            # Step B: Grounded LLM Adjudication (Greedy Decoding @ Temp 0.0)
+            # Step B: Grounded LLM Adjudication
             llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.0)
 
             system_prompt = f"""You are an impartial FIDIC Engineer and Adjudicator operating strictly under FIDIC 1999 Red Book rules.
@@ -212,6 +235,10 @@ Draft a formal, legally binding Engineer's Determination Letter under FIDIC Sub-
 
             response = llm.invoke(system_prompt)
             output_text = response.content[0].get("text", "") if isinstance(response.content, list) else response.content
+
+            # Increment session counter only when using the host key
+            if not custom_key:
+                st.session_state.adjudication_runs += 1
 
             st.subheader("Step 2: Formal Engineer's Determination Memorandum")
             st.markdown(f'<div class="verdict-box">{output_text.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
