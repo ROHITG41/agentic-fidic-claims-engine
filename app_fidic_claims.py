@@ -1,9 +1,15 @@
 import os
+import io
 from datetime import date, datetime
 import streamlit as st
 import pandas as pd
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 # =====================================================================
 # SECTION 1: UI CONFIGURATION & STYLING
@@ -26,7 +32,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">⚖️ FIDIC Enterprise Claims & Delay Engine (Red Book 1999)</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Bridge 1: ChromaDB RAG Vector Gate &nbsp;|&nbsp; Bridge 2: Deterministic CPU Engine &nbsp;|&nbsp; Bridge 3: Multi-Agent Negotiation Sentry</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Bridge 1: ChromaDB RAG Vector Gate &nbsp;|&nbsp; Bridge 2: Deterministic CPU Engine &nbsp;|&nbsp; Bridge 3: Multi-Agent DAB Negotiation</div>', unsafe_allow_html=True)
 
 # =====================================================================
 # SECTION 2: SIDEBAR GOVERNANCE & FINANCIAL PARAMETERS
@@ -102,7 +108,75 @@ def calculate_delay_and_cost(d_event, d_notice, claimed_days, avail_float, concu
     }
 
 # =====================================================================
-# SECTION 4: DISPUTE CHRONOLOGY & METRIC AUDIT DASHBOARD
+# SECTION 4: PDF REPORT GENERATION ENGINE (IN-MEMORY & ENCRYPTED)
+# =====================================================================
+def clean_pdf_text(text):
+    replacements = {
+        '\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"',
+        '\u2013': '-', '\u2014': '--', '\u2022': '*', '•': '*',
+        '⚖️': '', '✅': '[PASS]', '❌': '[FAIL]', '🔹': '-',
+        '🏛️': '', '👷': '', '🤝': '', '📊': ''
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    return text.encode('latin-1', 'replace').decode('latin-1')
+
+def generate_pdf_report(report_title, narrative, event_d, notice_d, claimed_d, calc_data, decision_text):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle('RepTitle', parent=styles['Heading1'], fontSize=16, leading=20, textColor=colors.HexColor('#1B365D'))
+    h2_style = ParagraphStyle('RepH2', parent=styles['Heading2'], fontSize=12, leading=16, textColor=colors.HexColor('#1B365D'))
+    body_style = ParagraphStyle('RepBody', parent=styles['Normal'], fontSize=9, leading=13, textColor=colors.HexColor('#1E293B'))
+
+    elements = []
+    elements.append(Paragraph(clean_pdf_text(f"<b>{report_title}</b>"), title_style))
+    elements.append(Paragraph(clean_pdf_text("FIDIC Conditions of Contract for Construction (Red Book 1999) | Adjudication Record"), body_style))
+    elements.append(Spacer(1, 12))
+
+    # Audit Metrics Table
+    status_label = "TIME-BARRED" if calc_data['is_time_barred'] else "TIMELY NOTICE"
+    table_data = [
+        ["Parameter", "Audited Metric", "Contractual Governing Basis"],
+        ["Notice Delta (Cl. 20.1)", f"{calc_data['notice_delta']} Days", f"Statutory Limit: 28 Days ({status_label})"],
+        ["Extension of Time Claimed", f"{claimed_d} Days", "Contractor Submission"],
+        ["Net Defensible EoT (Cl. 8.4)", f"{calc_data['net_eot']} Days", "SCL Protocol Concurrency & Float Offset"],
+        ["Unexcused Delay Assessed", f"{calc_data['unexcused_delay']} Days", "Subject to Sub-Clause 8.7 Delay Damages"],
+        ["Liquidated Damages Levied", f"${calc_data['liquidated_damages']:,.2f}", f"Contractual Cap Applied: {'Yes' if calc_data['is_capped'] else 'No'}"]
+    ]
+
+    t = Table(table_data, colWidths=[150, 110, 250])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1B365D')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 9),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#F8FAFC')),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 14))
+
+    # Dispute Narrative
+    elements.append(Paragraph("<b>1. Claim Particulars & Factual Submittal</b>", h2_style))
+    elements.append(Paragraph(clean_pdf_text(narrative), body_style))
+    elements.append(Spacer(1, 12))
+
+    # Formal Determination
+    elements.append(Paragraph("<b>2. Binding Adjudication Ruling</b>", h2_style))
+    for paragraph in decision_text.split("\n"):
+        if paragraph.strip():
+            elements.append(Paragraph(clean_pdf_text(paragraph), body_style))
+            elements.append(Spacer(1, 4))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+# =====================================================================
+# SECTION 5: DISPUTE CHRONOLOGY & METRIC AUDIT DASHBOARD
 # =====================================================================
 col_left, col_right = st.columns([1, 1])
 
@@ -154,12 +228,12 @@ with col_right:
 st.divider()
 
 # =====================================================================
-# SECTION 5: UNIFIED ADJUDICATION PIPELINE (BRIDGE 1 & BRIDGE 2)
+# SECTION 6: UNIFIED ADJUDICATION PIPELINE & DOWNLOAD GATES
 # =====================================================================
 is_limit_reached = (not custom_key) and (st.session_state.adjudication_runs >= MAX_SESSION_RUNS)
 
 if is_limit_reached:
-    st.warning("⚠️ Session demo limit reached (3/3 runs used). To run further adjudications, enter your own Gemini API Key in the left sidebar.")
+    st.warning("⚠️ Session demo limit reached (3/3 runs used). To run further determinations, enter your own Gemini API Key in the left sidebar.")
 
 col_btn1, col_btn2 = st.columns(2)
 run_btn_single = col_btn1.button("⚖️ Run Engineer's Determination (Sub-Cl. 3.5)", type="primary", disabled=is_limit_reached)
@@ -177,6 +251,7 @@ def get_rag_context(statement):
     ])
     return results, retrieved, context
 
+# Execution Path A: Engineer's Determination
 if run_btn_single:
     if not api_key:
         st.error("API Key missing. Please provide a Gemini API Key.")
@@ -230,12 +305,22 @@ Draft a formal Engineer's Determination Letter under Sub-Clause 3.5:
 
             st.subheader("Step 2: Formal Engineer's Determination Memorandum")
             st.markdown(f'<div class="verdict-box">{output_text.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+
+            # Generate Downloadable PDF
+            pdf_bytes = generate_pdf_report(
+                "ENGINEER'S FORMAL DETERMINATION (SUB-CLAUSE 3.5)",
+                claim_statement, date_event, date_notice, claimed_days, calc, output_text
+            )
+            st.download_button(
+                label="📥 Download Formal Engineer's Determination (PDF)",
+                data=pdf_bytes,
+                file_name=f"FIDIC_Cl_3.5_Determination_{date.today().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf"
+            )
         except Exception as e:
             st.error(f"Execution Error: {e}")
 
-# =====================================================================
-# SECTION 6: BRIDGE 3 - AUTONOMOUS MULTI-AGENT NEGOTIATION SENTRY
-# =====================================================================
+# Execution Path B: Bridge 3 Multi-Agent DAB Negotiation
 if run_btn_multi:
     if not api_key:
         st.error("API Key missing. Please provide a Gemini API Key.")
@@ -262,7 +347,7 @@ Argue why the notice was timely, why float belongs to the contractor, challenge 
             res_contractor = llm.invoke(prompt_contractor)
             contractor_speech = res_contractor.content[0].get("text", "") if isinstance(res_contractor.content, list) else res_contractor.content
 
-            # Agent 2: Employer Dispute Board (DAB) Sentry
+            # Agent 2: Employer DAB Sentry
             prompt_employer = f"""You are the Dispute Adjudication Board (DAB) Legal Sentry defending the Employer under FIDIC 1999 Red Book.
 CONTRACT CONTEXT: {context_text}
 DETERMINISTIC CPU AUDITED METRICS:
@@ -309,5 +394,17 @@ Provide:
             with tab_raw:
                 st.markdown(f'<div class="accord-box"><b>⚖️ DAB Mediated Settlement Accord (Sub-Clause 20.4):</b><br>{accord_speech.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
 
+            # Generate Downloadable Accord PDF
+            combined_negotiation_text = f"CONTRACTOR POSITION:\n{contractor_speech}\n\nEMPLOYER DAB REBUTTAL:\n{employer_speech}\n\nBINDING DAB SETTLEMENT ACCORD:\n{accord_speech}"
+            pdf_bytes = generate_pdf_report(
+                "DISPUTE ADJUDICATION BOARD ACCORD (SUB-CLAUSE 20.4)",
+                claim_statement, date_event, date_notice, claimed_days, calc, combined_negotiation_text
+            )
+            st.download_button(
+                label="📥 Download DAB Mediated Settlement Accord (PDF)",
+                data=pdf_bytes,
+                file_name=f"FIDIC_Cl_20.4_DAB_Accord_{date.today().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf"
+            )
         except Exception as e:
             st.error(f"Negotiation Execution Error: {e}")

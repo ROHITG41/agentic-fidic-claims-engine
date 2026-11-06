@@ -7,3 +7,4 @@ langchain-text-splitters>=0.0.1
 langchain-google-genai>=1.0.1
 google-genai
 pydantic>=2.0.0
+reportlab
