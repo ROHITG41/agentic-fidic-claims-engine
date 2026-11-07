@@ -707,26 +707,4 @@ if "board_accord" in st.session_state:
     tab_cont, tab_emp, tab_accord = st.tabs([
         "👷 Contractor Advocate Submittal",
         "🏛️ Employer Legal Sentry Defense",
-        "📜 Enforceable Settlement Accord"
-    ])
-    
-    with tab_cont:
-        st.markdown(st.session_state["board_contractor"])
-    with tab_emp:
-        st.markdown(st.session_state["board_employer"])
-    with tab_accord:
-        st.markdown(st.session_state["board_accord"])
-    
-    # Generate Downloadable Accord PDF with Clean Formatting & Author Provenance
-    pdf_accord_bytes = generate_pdf_report(
-        doc_title=f"MEDIATED DISPUTE SETTLEMENT ACCORD ({st.session_state['board_edition']})",
-        edition=st.session_state["board_edition"],
-        metrics=calc_results,
-        statement=claim_statement,
-        decision_text=st.session_state["board_accord"],
-        is_accord=True
-    )
-    
-    st.download_button(
-        label="📥 Download Mediated Settlement Accord (Branded Audit PDF)",
-        data
+        "📜
