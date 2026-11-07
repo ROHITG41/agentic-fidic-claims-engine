@@ -33,11 +33,32 @@ if not api_key:
 if "demo_runs" not in st.session_state:
     st.session_state["demo_runs"] = 0
 
+# Helper to normalize LLM response content (handles string, list of blocks, or dicts)
+def extract_text(content) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict) and "text" in item:
+                parts.append(str(item["text"]))
+            else:
+                parts.append(str(item))
+        return "\n\n".join(parts)
+    return str(content)
+
 # ---------------------------------------------------------
 # 2. REPORTLAB PDF EXPORT ENGINE WITH AUTHOR ATTRIBUTION
 # ---------------------------------------------------------
-def clean_pdf_text(text: str) -> str:
-    """Sanitizes UTF-8 strings into Latin-1 compliant characters for ReportLab rendering."""
+def clean_pdf_text(text) -> str:
+    """Sanitizes strings/lists into Latin-1 compliant characters for ReportLab rendering."""
+    # Ensure text is converted to a string even if a list or None is passed
+    text = extract_text(text)
+
     replacements = {
         '\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"',
         '\u2013': '-', '\u2014': '--', '\u2022': '*', '•': '*',
@@ -49,7 +70,7 @@ def clean_pdf_text(text: str) -> str:
     return text.encode('latin-1', 'replace').decode('latin-1')
 
 def generate_pdf_report(doc_title, edition, metrics, statement, decision_text, is_accord=False):
-    """Generates a boardroom-ready formal legal PDF stamped with system author provenance."""
+    """Generates a formal legal PDF stamped with system author provenance."""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, 
@@ -286,11 +307,11 @@ def get_rag_context(statement, edition_name, is_2017, user_api_key):
     )
     vector_db = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
     
-    # Query Chroma without database-level filter to eliminate 'Error finding id' crashes
+    # Query Chroma without database-level filter
     search_query = f"{edition_name}: {statement}"
     results = vector_db.similarity_search_with_relevance_scores(search_query, k=8)
     
-    # Safe deterministic Python list comprehension filtering
+    # Safe deterministic Python filtering
     target_tag = "2017" if is_2017 else "1999"
     matched = [
         (doc, score) for doc, score in results 
@@ -512,7 +533,8 @@ if run_determination_clicked:
                     HumanMessage(content=f"Claim Narrative:\n{claim_statement}")
                 ])
                 
-                st.session_state["determination_letter"] = response.content
+                # Use extract_text to convert any list/content blocks into clean string
+                st.session_state["determination_letter"] = extract_text(response.content)
                 st.session_state["determination_rag"] = rag_context
                 st.session_state["determination_edition"] = selected_edition
 
@@ -570,10 +592,10 @@ if run_board_clicked:
                     f"Facts: Claimed {claimed_days}d, Float: {avail_float}d, Concurrent: {concurrent_delay}d.\n"
                     f"Ground Truth:\n{rag_context}\n\nPresent the Contractor's Formal Submittal."
                 )
-                res_contractor = llm.invoke([
+                res_contractor = extract_text(llm.invoke([
                     SystemMessage(content=contractor_prompt),
                     HumanMessage(content=claim_statement)
-                ]).content
+                ]).content)
 
                 # Agent B: Employer Legal Sentry
                 employer_prompt = (
@@ -582,10 +604,10 @@ if run_board_clicked:
                     f"Demand assessment of Delay Damages under {ld_clause} for {calc_results['unexcused_delay']} days totaling ${calc_results['liquidated_damages']:,.2f}.\n"
                     f"Ground Truth:\n{rag_context}\n\nPresent the Employer's Statement of Defense."
                 )
-                res_employer = llm.invoke([
+                res_employer = extract_text(llm.invoke([
                     SystemMessage(content=employer_prompt),
                     HumanMessage(content=f"Contractor's Submission:\n{res_contractor}\n\nFacts: {calc_results['rejection_reason']}")
-                ]).content
+                ]).content)
 
                 # Agent C: Presiding Arbitrator Accord
                 arbitrator_prompt = (
@@ -596,10 +618,10 @@ if run_board_clicked:
                     f"- Procedural Status: {calc_results['rejection_reason']}.\n"
                     f"Draft a formal, binding 3-point Mediated Settlement Accord balancing commercial progress with contractual compliance."
                 )
-                res_arbitrator = llm.invoke([
+                res_arbitrator = extract_text(llm.invoke([
                     SystemMessage(content=arbitrator_prompt),
                     HumanMessage(content=f"Debate Summary:\nContractor: {res_contractor}\n\nEmployer: {res_employer}")
-                ]).content
+                ]).content)
 
                 st.session_state["board_contractor"] = res_contractor
                 st.session_state["board_employer"] = res_employer
