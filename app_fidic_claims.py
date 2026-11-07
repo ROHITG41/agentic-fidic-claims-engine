@@ -1,5 +1,6 @@
 import os
 import io
+import re
 from datetime import date, timedelta
 import streamlit as st
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -52,16 +53,14 @@ def extract_text(content) -> str:
     return str(content)
 
 # ---------------------------------------------------------
-# 2. REPORTLAB PDF EXPORT ENGINE WITH AUTHOR ATTRIBUTION
+# 2. REPORTLAB PDF FORMATTING & MARKDOWN PARSER
 # ---------------------------------------------------------
 def clean_pdf_text(text) -> str:
-    """Sanitizes strings/lists into Latin-1 compliant characters for ReportLab rendering."""
-    # Ensure text is converted to a string even if a list or None is passed
+    """Sanitizes text for ReportLab rendering and ensures Latin-1 compliance."""
     text = extract_text(text)
-
     replacements = {
         '\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"',
-        '\u2013': '-', '\u2014': '--', '\u2022': '*', '•': '*',
+        '\u2013': '-', '\u2014': '--',
         '⚖️': '', '✅': '[COMPLIANT]', '❌': '[TIME-BARRED]', '🔹': '-',
         '🏛️': '', '👷': '', '🤝': '', '📊': '', '📄': '', '⚠️': '[WARN]'
     }
@@ -69,8 +68,66 @@ def clean_pdf_text(text) -> str:
         text = text.replace(k, v)
     return text.encode('latin-1', 'replace').decode('latin-1')
 
+def format_markdown_for_reportlab(raw_text):
+    """Parses raw LLM markdown into balanced XML tags and clean ReportLab headings/bullets."""
+    text = extract_text(raw_text)
+    if not text:
+        return []
+
+    # Clean quotes and line endings
+    text = text.replace('\r\n', '\n').replace('\r', '\n').replace('""', '"')
+    
+    # Split compressed lines where headings or triple asterisks are glued together
+    text = re.sub(r'(?<=[^\n])\s*\*\*\*', r'\n***', text)
+    text = re.sub(r'(?<=[^\n])\s*###', r'\n###', text)
+
+    flowables_data = []
+
+    for block in text.split('\n'):
+        line = block.strip()
+        if not line:
+            continue
+
+        is_subheading = False
+
+        # 1. Detect Markdown Headings (e.g. ### 1. Context and Executive Summary)
+        if line.startswith('#'):
+            line = re.sub(r'^[#\s]+', '', line).strip()
+            is_subheading = True
+
+        # 2. Convert bullet-style starts (e.g. '***Procedural Validity:**' -> '&bull; **Procedural Validity:**')
+        line = re.sub(r'^\*{3,}\s*', '&bull; **', line)
+        line = re.sub(r'^[\*\-]\s+', '&bull; ', line)
+
+        # 3. Collapse 3+ asterisks anywhere inside line to 2 asterisks (bold)
+        line = re.sub(r'\*{3,}', '**', line)
+
+        # 4. Pair up **bold** to <b>...</b>
+        if line.count('**') % 2 != 0:
+            last_pos = line.rfind('**')
+            line = line[:last_pos] + line[last_pos + 2:]
+
+        parts = line.split('**')
+        if len(parts) > 1:
+            rebuilt = []
+            for i, p in enumerate(parts):
+                if i % 2 == 1:
+                    rebuilt.append(f"<b>{p.strip()}</b>")
+                else:
+                    rebuilt.append(p)
+            line = "".join(rebuilt)
+
+        # 5. Clean up any leftover asterisks and empty tags
+        line = line.replace('*', '')
+        line = line.replace('<b></b>', '').replace('<b> </b>', ' ')
+
+        if line.strip():
+            flowables_data.append((line.strip(), is_subheading))
+
+    return flowables_data
+
 def generate_pdf_report(doc_title, edition, metrics, statement, decision_text, is_accord=False):
-    """Generates a formal legal PDF stamped with system author provenance."""
+    """Generates a boardroom-ready legal PDF stamped with system author provenance."""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, 
@@ -100,6 +157,16 @@ def generate_pdf_report(doc_title, edition, metrics, statement, decision_text, i
         textColor=colors.HexColor('#1B365D'),
         spaceBefore=8,
         spaceAfter=4
+    )
+    sub_heading_style = ParagraphStyle(
+        'DocSubHeading',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9.5,
+        leading=13,
+        textColor=colors.HexColor('#1B365D'),
+        spaceBefore=6,
+        spaceAfter=2
     )
     body_style = ParagraphStyle(
         'DocBody',
@@ -206,15 +273,19 @@ def generate_pdf_report(doc_title, edition, metrics, statement, decision_text, i
     story.append(Paragraph(clean_pdf_text(statement), body_style))
     story.append(Spacer(1, 8))
 
-    # 5. Formal Legal Ruling or Mediated Accord
+    # 5. Formal Legal Ruling or Mediated Accord with Clean Markdown Formatting
     ruling_title = "3. MEDIATED SETTLEMENT ACCORD & TERMS" if is_accord else "3. ENGINEER'S DETERMINATION MEMORANDUM"
     story.append(Paragraph(ruling_title, section_heading))
     
-    cleaned_decision = clean_pdf_text(decision_text)
-    for para in cleaned_decision.split('\n\n'):
-        if para.strip():
-            story.append(Paragraph(para.strip(), body_style))
-            story.append(Spacer(1, 4))
+    formatted_paras = format_markdown_for_reportlab(decision_text)
+    for line, is_subhead in formatted_paras:
+        clean_line = clean_pdf_text(line)
+        if is_subhead:
+            story.append(Paragraph(f"<b>{clean_line}</b>", sub_heading_style))
+            story.append(Spacer(1, 2))
+        else:
+            story.append(Paragraph(clean_line, body_style))
+            story.append(Spacer(1, 3))
 
     # 6. Engineering Certification & Audit Seal
     story.append(Spacer(1, 10))
@@ -533,7 +604,7 @@ if run_determination_clicked:
                     HumanMessage(content=f"Claim Narrative:\n{claim_statement}")
                 ])
                 
-                # Use extract_text to convert any list/content blocks into clean string
+                # Normalize LLM response
                 st.session_state["determination_letter"] = extract_text(response.content)
                 st.session_state["determination_rag"] = rag_context
                 st.session_state["determination_edition"] = selected_edition
@@ -548,7 +619,7 @@ if "determination_letter" in st.session_state:
     with st.expander("🔍 View Retrieved Contract Ground-Truth Clauses"):
         st.markdown(st.session_state["determination_rag"])
     
-    # Generate Downloadable PDF with Author Provenance
+    # Generate Downloadable PDF with Clean Formatting & Author Provenance
     pdf_bytes = generate_pdf_report(
         doc_title=f"ENGINEER'S FORMAL DETERMINATION ({st.session_state['determination_edition']})",
         edition=st.session_state["determination_edition"],
@@ -646,7 +717,7 @@ if "board_accord" in st.session_state:
     with tab_accord:
         st.markdown(st.session_state["board_accord"])
     
-    # Generate Downloadable Accord PDF
+    # Generate Downloadable Accord PDF with Clean Formatting & Author Provenance
     pdf_accord_bytes = generate_pdf_report(
         doc_title=f"MEDIATED DISPUTE SETTLEMENT ACCORD ({st.session_state['board_edition']})",
         edition=st.session_state["board_edition"],
@@ -658,8 +729,4 @@ if "board_accord" in st.session_state:
     
     st.download_button(
         label="📥 Download Mediated Settlement Accord (Branded Audit PDF)",
-        data=pdf_accord_bytes,
-        file_name="FIDIC_Dispute_Board_Settlement_Accord.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
+        data
