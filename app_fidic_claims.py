@@ -705,6 +705,7 @@ if run_board_clicked:
 if "board_accord" in st.session_state:
     st.markdown(f"### 🏛️ {board_name} -- Adversarial Proceedings")
     tab_cont, tab_emp, tab_accord = st.tabs([
-        "👷 Contractor Advocate Submittal",
-        "🏛️ Employer Legal Sentry Defense",
-        "📜
+        "Contractor Advocate Submittal",
+        "Employer Legal Sentry Defense",
+        "Enforceable Settlement Accord"
+    ])
