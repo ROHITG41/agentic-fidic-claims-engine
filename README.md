@@ -16,19 +16,13 @@ FIDIC contracts govern multi-million and multi-billion-dollar infrastructure dev
 This engine establishes strict deterministic boundaries across five core FIDIC provisions:
 ### Bridge 2 Deterministic Formulas
 
-1. Sub-Clause 20.1 Statutory Notice Delta
-\Delta_{\text{notice}}
-=
-\text{Date}_{\text{Notice}}
--
-\text{Date}_{\text{Awareness}}
-Condition Precedent:
+1. **Sub-Clause 20.1 Statutory Notice Delta:**
 
-If
+```math
+\Delta_{\text{notice}} = \text{Date}_{\text{Notice}} - \text{Date}_{\text{Awareness}}
+```
 
-\Delta_{\text{notice}} > 28\text{ days}
-then the claim status becomes TIME-BARRED (0 Days Entitlement).
-
+   *Condition Precedent:* If $\Delta\text{Notice} > 28\text{ days}$, status becomes **TIME-BARRED** (`0 Days Entitlement`).
 2. **Sub-Clause 8.4 Critical Path Float & Concurrency Offset:**
 
    $$\text{Critical Slippage} = \max(0, \text{Claimed Days} - \text{Total Float Consumed})$$
