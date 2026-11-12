@@ -14,10 +14,25 @@
 FIDIC contracts govern multi-million and multi-billion-dollar infrastructure developments. Commercial LLMs fail in construction dispute environments because they hallucinate clauses, cite incorrect contract editions, miscalculate calendar-day deltas, and make rounding errors on liquidated damages.
 
 This engine establishes strict deterministic boundaries across five core FIDIC provisions:
-* **Sub-Clause 20.1 / 20.2 Fatal Time-Bars:** Failure to submit a formal Notice of Claim within 28 days of event awareness forfeits entitlement to time and cost, discharging the Employer from liability.
-* **Sub-Clause 4.12 Unforeseeable Physical Conditions:** Enforces rigorous evidentiary thresholds to determine whether subsurface obstructions qualify for relief.
-* **Sub-Clause 8.4 Critical Path Entitlement:** Programmatically deducts available buffer float and contractor concurrent delays under Society of Construction Law (SCL) Delay Protocol principles.
-* **Sub-Clause 8.7 Delay Damages Math:** Liquidated damages are calculated strictly on unexcused culpable delay days and capped at the agreed contractual ceiling.
+### Bridge 2 Deterministic Formulas
+
+1. **Sub-Clause 20.1 Statutory Notice Delta:**
+
+   $$\Delta_{\text{notice}} = \text{Date}_{\text{Notice}} - \text{Date}_{\text{Awareness}}$$
+
+   *Condition Precedent:* If $\Delta_{\text{notice}} > 28\text{ days}$, status becomes **TIME-BARRED** (`0 Days Entitlement`).
+
+2. **Sub-Clause 8.4 Critical Path Float & Concurrency Offset:**
+
+   $$\text{Critical Slippage} = \max(0, \text{Claimed Days} - \text{Total Float Consumed})$$
+
+   $$\text{Net Defensible EoT} = \max(0, \text{Critical Slippage} - \text{Concurrent Contractor Delay})$$
+
+3. **Sub-Clause 8.7 Delay Damages Exposure:**
+
+   $$\text{Unexcused Delay} = \max(0, \text{Total Project Delay} - \text{Net Defensible EoT})$$
+
+   $$\text{Damages Levied} = \min(\text{Unexcused Delay} \times \text{Daily Rate}, \text{Contractual Cap})$$
 * **Sub-Clause 20.4 / 21.4 Multi-Agent Adjudication:** Simulates adversarial Dispute Adjudication Board (DAB / DAAB) proceedings to synthesize a mediated settlement accord.
 
 ### Operational Value
