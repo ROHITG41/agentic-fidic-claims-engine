@@ -1,146 +1,82 @@
-# ⚖️ FIDIC Enterprise Claims & Delay Engine (Red Book 1999)
+# Autonomous FIDIC Contract Claims & Time-Bar Engine
 
-[![Live Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://rohitkumarg-fidic-engine.streamlit.app)
-[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Vector Store](https://img.shields.io/badge/ChromaDB-Persistent%20Disk-red)](https://www.trychroma.com/)
-[![Embeddings](https://img.shields.io/badge/Google-gemini--embedding--2-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
-[![Reasoning Engine](https://img.shields.io/badge/Cognitive%20LLM-gemini--3.5--flash%20(Temp%200.0)-8E75C2)](https://ai.google.dev/)
-[![Multi-Agent Architecture](https://img.shields.io/badge/Architecture-Autonomous%20Multi--Agent%20DAB-green)](https://github.com/ROHITG41/agentic-fidic-claims-engine)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://rohitkumarg-fidic-engine.streamlit.app)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Vector DB](https://img.shields.io/badge/ChromaDB-Persistent%20Disk-D97706)
+![Cognitive LLM](https://img.shields.io/badge/Cognitive%20LLM-gemini--3.5--flash-7C3AED)
+![Architecture](https://img.shields.io/badge/Architecture-Autonomous%20Multi--Agent-059669)
 
-An enterprise-grade, hybrid AI adjudication and dispute negotiation system engineered for FIDIC 1999 Conditions of Contract for Construction (Red Book). 
-
-The platform couples an on-disk ChromaDB semantic vector gate (Bridge 1) with an on-chip deterministic CPU calculation layer (Bridge 2) and an autonomous multi-agent dispute adjudication board (Bridge 3) to eliminate AI hallucination across legal interpretation, critical path delay arithmetic, and bilateral dispute negotiation.
+> **Dataset & Confidentiality Note:** This application is an independent engineering architecture demonstration validated on representative, anonymized project datasets.
 
 ---
 
-## 🏛️ Business & Legal Problem Statement
+### Executive Problem Statement
+Under FIDIC 1999/2017 Red and Yellow Book contracts, strict procedural conditions precedent—most notably the **28-day notice time-bar under Sub-Clause 20.1 / 20.2**—determine whether a contractor's claim is valid or time-barred. Manual cross-referencing of notice chronologies against thousands of pages of site correspondence and baseline logs often results in missed procedural defenses or costly arbitration.
 
-FIDIC contracts govern multi-million and multi-billion-dollar infrastructure developments. Commercial LLMs fail in construction dispute environments because they hallucinate clauses, cite incorrect contract editions, miscalculate calendar-day deltas, and make rounding errors on liquidated damages.
-
-This engine establishes strict deterministic boundaries:
-* **Sub-Clause 20.1 Fatal Time-Bars:** Failure to submit a notice within 28 days of event awareness forfeits all entitlement to time and cost, discharging the Employer from liability.
-* **Sub-Clause 4.12 Unforeseeable Physical Conditions:** Enforces rigorous evidentiary thresholds to determine if subsurface obstructions qualify for relief.
-* **Sub-Clause 8.4 Critical Path Entitlement:** Programmatically deducts available buffer float and contractor concurrent delays under SCL Delay Protocol principles.
-* **Sub-Clause 8.7 Delay Damages Math:** Liquidated damages are calculated strictly on unexcused delay days and capped at the agreed contractual ceiling.
-* **Sub-Clause 20.4 Multi-Agent Adjudication:** Simulates adversarial Dispute Adjudication Board (DAB) proceedings to produce an enforceable mediated settlement accord.
+### Operational Value
+* **Early Procedural Defense:** Deterministically audits event awareness dates against formal notice dates to flag fatal 28-day time-bar defaults immediately.
+* **Evidence-Grounded Rebuttals:** Retrieves contemporaneous site records and contract clauses via ChromaDB Vector RAG to prevent unsupported LLM citations.
+* **Structured Determination Drafting:** Models Dispute Avoidance/Adjudication Board (DAAB) positions and drafts formal Engineer's Determinations under Sub-Clause 3.5 / 3.7 for human review.
 
 ---
 
-## 📐 System Architecture: The 3-Bridge Engine
+### System Architecture
 
-```text
-Contractor Claim Narrative & Project Chronology
-                      │
-        ┌─────────────┴─────────────┐
-        ▼                           ▼
-[Bridge 1: Legal Vector Gate]  [Bridge 2: Deterministic CPU Layer]
-ChromaDB + gemini-embedding-2   Python Date & Float Arithmetic
-Relevance Gate Cutoff >= 0.45   Zero-Hallucination Math Execution
-        │                           │
-        │ Verified Clauses          │ Audited Days, EoT & LDs ($)
-        └─────────────┬─────────────┘
-                      ▼
- ┌─────────────────────────────────────────────────────────────┐
- │       BRIDGE 3: AUTONOMOUS MULTI-AGENT DAB SENTRY           │
- │                                                             │
- │  [Contractor Advocate Agent]    [Employer DAB Sentry Agent] │
- │  • Maximize EoT & Overheads      • Strict Cl. 20.1 Time-Bar  │
- │  • Challenge Float Deductions    • Enforce Cl. 8.7 LDs ($)   │
- │              │                               │              │
- │              └───────────────┬───────────────┘              │
- │                              ▼                              │
- │              [Mediated Settlement Accord Agent]             │
- │              Sub-Clause 20.4 Binding Compromise             │
- └──────────────────────────────┬──────────────────────────────┘
-                                ▼
-         Formal Engineer's Determination Memorandum
-         • Contractual Sub-Clauses Invoked & Audited
-         • Binding Net Defensible EoT (Calendar Days)
-         • Legally Enforceable Delay Damages Assessment ($)
-         • Multi-Agent Settlement Accord & Action Plan
+```mermaid
+flowchart TD
+    classDef client fill:#EFF6FF,stroke:#2563EB,stroke-width:2px,color:#1E3A8A;
+    classDef deterministic fill:#ECFDF5,stroke:#059669,stroke-width:2px,color:#064E3B;
+    classDef memory fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#78350F;
+    classDef logic fill:#FAF5FF,stroke:#7C3AED,stroke-width:2px,color:#4C1D95;
+    classDef output fill:#F8FAFC,stroke:#475569,stroke-width:2px,color:#0F172A;
+
+    subgraph INGRESS ["1. CLAIM CHRONOLOGY & NOTICE INGESTION"]
+        UI["Streamlit Cloud Interface<br/><b>Event Trigger Date, Notice Date & Claim Particulars</b>"]:::client
+    end
+
+    subgraph CPU_GATE ["2. DETERMINISTIC TIME-BAR & QUANTUM GATE"]
+        CAL["<b>Statutory Calendar Sentry (CPU)</b><br/>Computes Exact Elapsed Days vs. 28-Day FIDIC Cl. 20.1 Gate<br/>Validates 42-Day Detailed Particulars Window"]:::deterministic
+    end
+
+    subgraph RAG_STORE ["3. SEMANTIC EVIDENCE RETRIEVAL"]
+        CHROMA[("<b>ChromaDB Vector Store</b><br/>FIDIC Contract Clauses & Contemporaneous Site Logs<br/>gemini-embedding-2 Semantic Search")]:::memory
+    end
+
+    subgraph COGNITIVE ["4. MULTI-AGENT ADJUDICATION & DAAB SIMULATION"]
+        LLM["<b>LangChain LCEL + Google Gemini (gemini-3.5-flash)</b><br/>Synthesizes Engineer's Rebuttal (Cl. 3.5 / 3.7)<br/>Models Adversarial DAAB Settlement Scenarios"]:::logic
+    end
+
+    subgraph DELIVERABLE ["5. CONTRACTUAL DETERMINATION ARTIFACT"]
+        MEMO["<b>Formal Engineer's Determination & Rebuttal Dossier</b><br/>Downloadable Memorandum for Commercial Review"]:::output
+    end
+
+    UI --> CAL
+    UI --> CHROMA
+    CAL -->|Procedural Time-Bar Verdict| LLM
+    CHROMA -->|Grounded Evidence Chunks| LLM
+    LLM --> MEMO
 ```
 
 ---
 
-## 🔬 Core Engineering Innovations
+### Technology Stack
+* **Runtime & UI:** Python 3.12, Streamlit Community Cloud
+* **Vector Database & Retrieval:** ChromaDB, Google `gemini-embedding-2`
+* **Orchestration & Validation:** LangChain LCEL, Google `gemini-3.5-flash`, Pydantic v2
 
-| Layer | Technical Implementation | Enterprise Safeguard |
-| :--- | :--- | :--- |
-| **Bridge 1: Persistent Vector Store** | Embedded on-disk ChromaDB (`./chroma_fidic_db`) | Sub-100ms retrieval without recurring re-indexing latency. |
-| **Bridge 1: Relevance Guardrail** | Cosine similarity cutoff set at `0.45` | Rejects non-contractual queries prior to model inference. |
-| **Bridge 2: Date Delta Engine** | Pure Python calendar delta calculation | Enforces strict 28-day Sub-Clause 20.1 time-bar condition precedent. |
-| **Bridge 2: Delay & Cost Engine** | SCL float offsets & Sub-Clause 8.7 LD formulas | Guarantees exact liquidated damages math capped at contractual limits. |
-| **Bridge 3: Multi-Agent DAB Sentry** | Autonomous adversarial agent negotiation | Synthesizes Contractor claims and Employer rebuttals into an accord. |
-| **Enterprise Quota Guard** | Session run-capping with BYOK fallback | Shields host API quota from abuse while permitting public trial. |
-
----
-
-## 📐 Bridge 2 Deterministic Formulas
-
-1. **Sub-Clause 20.1 Statutory Notice Delta:**
-   $$\Delta_{\text{notice}} = \text{Date}_{\text{Notice}} - \text{Date}_{\text{Awareness}}$$
-   $$\text{If } \Delta_{\text{notice}} > 28\text{ days} \implies \text{Status: TIME-BARRED (0 Days Entitlement)}$$
-
-2. **Sub-Clause 8.4 Critical Path Float & Concurrency Offset:**
-   $$\text{Critical Slippage} = \max(0, \text{Claimed Days} - \text{Total Float Consumed})$$
-   $$\text{Net Defensible EoT} = \max(0, \text{Critical Slippage} - \text{Concurrent Contractor Delay})$$
-
-3. **Sub-Clause 8.7 Delay Damages Exposure:**
-   $$\text{Unexcused Delay} = \max(0, \text{Total Project Delay} - \text{Net Defensible EoT})$$
-   $$\text{Damages Levied} = \min(\text{Unexcused Delay} \times \text{Daily Rate}, \text{Contractual Cap})$$
+### Author & Architect
+**Rohit Kumar, PMP, CEng, CEA, FSEr (TÜV)**  
+Cross-Technology Technical Architect | Mission-Critical Infrastructure & Applied AI Solutions  
+[LinkedIn](https://www.linkedin.com/in/rohitg41) | [Live Application](https://rohitkumarg-fidic-engine.streamlit.app)
 
 ---
 
-## 📊 Empirical Verification & Test Matrix
-
-### Case 1: Procedural Time-Bar (Sub-Clause 20.1)
-* **Scenario:** Notice served 35 days after event awareness (Ceiling: 28 days).
-* **Deterministic CPU Output:** `Notice Delta: 35 days` | `Status: TIME-BARRED` | `Net EoT: 0 days`.
-* **Adjudication Verdict:** **TIME-BARRED**. Employer fully discharged from liability.
-
-### Case 2: Unforeseeable Physical Conditions & Delay Damages (Sub-Clause 4.12, 8.4, 8.7)
-* **Scenario:** Contractor encounters unforeseen granite rock. 40 days claimed, 5 days float available, 7 days concurrent contractor delay, 40 days total project delay. Contract: $25M, LD rate: $15,000/day.
-* **Deterministic CPU Output:**
-  * Net Defensible EoT: $40 - 5 - 7 = \mathbf{28\text{ days}}$.
-  * Unexcused Culpable Delay: $40 - 28 = \mathbf{12\text{ days}}$.
-  * Delay Damages Levied: $12 \times \$15,000 = \mathbf{\$180,000}$.
-* **Adjudication Verdict:** **ADMITTED IN PART (28 Days EoT Awarded, $180,000 LDs Assessed)**.
-
-### Case 3: Bridge 3 Multi-Agent Dispute Adjudication Board (Sub-Clause 20.4)
-* **Contractor Advocate Agent:** Pleads site conditions, rejects float ownership by Employer, demands 40 days EoT.
-* **Employer DAB Sentry Agent:** Rebuts with audited 18-day notice delta, enforces 7-day concurrency offset, demands $180,000 LDs.
-* **Mediated Settlement Accord:** Awards 28 days EoT under Sub-Clause 8.4, affirms $180,000 LD offset under Sub-Clause 8.7, and generates a 3-point binding site execution plan.
+### Enterprise Advisory & Custom Architecture
+Available for technical consulting, custom agentic workflow development, and private enterprise deployments.  
+**Connect:** [LinkedIn](https://www.linkedin.com/in/rohitg41) | **Email:** `grohit41@gmail.com`
 
 ---
 
-## 🚀 Quickstart & Local Installation
-
-```bash
-# 1. Clone repository
-git clone [https://github.com/ROHITG41/agentic-fidic-claims-engine.git](https://github.com/ROHITG41/agentic-fidic-claims-engine.git)
-cd agentic-fidic-claims-engine
-
-# 2. Set up virtual environment
-python -m venv venv
-venv\Scripts\activate
-
-# 3. Install production dependencies
-pip install -r requirements.txt
-
-# 4. Run application
-streamlit run app_fidic_claims.py
-```
-
----
-
-## 🗺️ Multi-Agent Bridge Roadmap
-
-- [x] **Bridge 1 (Completed):** RAG Ingestion Pipeline, Persistent ChromaDB Storage, 0.45 Relevance Gate, Streamlit Cloud Deployment.
-- [x] **Bridge 2 (Completed):** Deterministic Delay & Cost Engine — Zero-drift date arithmetic, SCL float deduction, and Sub-Clause 8.7 damages calculation.
-- [x] **Bridge 3 (Completed):** Autonomous Multi-Agent Negotiation Sentry — Contractor Advocate Agent vs. Employer Dispute Board Sentry with Sub-Clause 20.4 Mediated Settlement Accord.
-
----
-
-## 📄 License
-Distributed under the MIT License.
+### Intellectual Property & Licensing
+**Copyright © 2026 Rohit Kumar. All Rights Reserved.**  
+This repository and its source code are published solely for technical portfolio evaluation and architectural demonstration. Unauthorized copying, redistribution, or commercial deployment is prohibited without prior written consent.
