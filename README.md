@@ -23,6 +23,7 @@ This engine establishes strict deterministic boundaries across five core FIDIC p
 ```
 
    *Condition Precedent:* If $\Delta\text{Notice} > 28\text{ days}$, status becomes **TIME-BARRED** (`0 Days Entitlement`).
+
 2. **Sub-Clause 8.4 Critical Path Float & Concurrency Offset:**
 
    $$\text{Critical Slippage} = \max(0, \text{Claimed Days} - \text{Total Float Consumed})$$
